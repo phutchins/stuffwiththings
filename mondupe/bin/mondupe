@@ -1,0 +1,132 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+
+$options = {}
+
+ValidHostnameRegex=/(?!-)[A-Z\d-]{1,63}(?<!-)$/
+
+opt_parser = OptionParser.new do |opt|
+  opt.banner = "Usage: mondupe COMMAND [OPTIONS]"
+  opt.separator ""
+  opt.separator "Commands           Description"
+  opt.separator "      create     - create new mongo host."
+  opt.separator "                    Requires -n [name]"
+  opt.separator "                    Optional -i [image] -e [expire_days] -o [owner] -t [type] -a [ipaddress] -s [size]"
+  opt.separator "      delete     - delete existing mongo host."
+  opt.separator "                    Requires -n [name] || -d [id]"
+  opt.separator "      bootstrap  - push chef-client and configuration to the node."
+  opt.separator "                    Requires -n [name] -a [ipaddress]"
+  opt.separator "      dumps3     - retrieve the database dump from s3."
+  opt.separator "                    Requires -n [name] -a [ipaddress]"
+  opt.separator "      restore    - Restore a mongo dump that exists on a host"
+  opt.separator "                    Requires -n [name] -a [ipaddress]"
+  opt.separator "                    Optional -t [tmpdir]"
+  opt.separator "      expire     - Reset the expiration days of a node"
+  opt.separator "                    Requires ( -n [name] || -d [id] || -a [ipaddress] ) -e [expire_days]"
+  opt.separator "      list       - (coming soon) list all mongo hosts."
+  opt.separator "      help       - Get help."
+  opt.separator ""
+  opt.separator "Options"
+
+  opt.on("-n","--name HOSTNAME","Name of the host that you are creating") do |name|
+    if ValidHostnameRegex.match(name)
+      $options[:name] = name
+    else
+      abort("Invalid hostname")
+    end
+  end
+
+  opt.on("-i","--image IMAGENAME","Name of the AWS Image you would like to use") do |image|
+    $options[:image] = image
+  end
+
+  opt.on("-e","--expire DAYS","Number of days the instance should stay on line. - Default: 3") do |days|
+    $options[:expire_days] = day
+  end
+
+  opt.on("-o","--owner NAME","Name of the owner of the host to be created. - Default: Your Username") do |owner|
+    $options[:owner] = owner
+  end
+
+  opt.on("-t","--type INSTANCE_TYPE","Type of AWS host to create. - Default: m3.xlarge") do |type|
+    $options[:type] = type
+  end
+
+  opt.on("-a","--ipaddress IPADDRESS","IP address of node that already exists. Not to be used with creating new nodes") do |address|
+    $options[:ipaddress] = address
+  end
+
+  opt.on("-d","--id INSTANCE_ID","AWS ID of the instance, must exist already") do |id|
+    $options[:id] = id
+  end
+
+  opt.on("-t","--tmpdir TEMP_DIR","Directory on remote host that will be used for downloading the mongo dump. - Default: /tmp") do |tmpdir|
+    $options[:tmpdir] = tmpdir
+  end
+
+  opt.on("-s","--size VOLUME_SIZE","Set the root volume size in GB - Default: 60") do |size|
+    $options[:size] = size
+  end
+
+  opt.on("-h","--help","help") do
+    puts opt_parser
+  end
+end
+
+opt_parser.parse!
+
+instance_image_id = "ami-018c9568"
+instance_type = $options[:type] || "m3.xlarge"
+instance_name = $options[:name] || "my_awesome_new_instance1"
+instance_owner = $options[:owner] || ENV['USER'] || 'mondupe'
+instance_ipaddress = $options[:ipaddress] || nil
+instance_id = $options[:id] || nil
+dump_tmp_path = $options[:tmpdir] || '/tmp'
+expire_days = $options[:expire_days] || 3
+instance_count = 1
+chef_run_list = '"recipe[base], recipe[mongodb-corndog::production_copy]"'
+chef_identity_file = "~/.ssh/DevOps.pem"
+chef_environment = "internal_production"
+ssh_key = "~/.ssh/DevOps.pem"
+ssh_user = "ubuntu"
+route53_domain = "dealermatch.biz."
+instance_fqdn = instance_name + "." + route53_domain
+key_pair_name = 'DevOps'
+security_group = 'mongo'
+s3_bucket_name = 'cde_production_mongo_backups'
+dump_file_name = 'mongodb.dump.tgz'
+instance_volume_size = 60
+
+case ARGV[0]
+when "create"
+  puts "Creating AWS EC2 Instance with MongoDB and restoring from latest production backup"
+  instance = Mondupe.new.create_instance(instance_name, instance_image_id, instance_type, instance_count, security_group, key_pair_name, expire_days, instance_owner, instance_volume_size)
+  Mondupe.new.create_dns(instance_fqdn, route53_domain, instance)
+  Mondupe.new.bootstrap(instance_name, instance_fqdn, instance.ip_address, chef_environment, chef_identity_file, chef_run_list, ssh_user)
+  Mondupe.new.get_db_dump_from_s3(instance.ip_address, s3_bucket_name, dump_tmp_path, ssh_user, dump_file_name)
+  Mondupe.new.restore_db(instance.ip_address, dump_tmp_path, ssh_key, ssh_user, dump_file_name)
+when "delete"
+  puts "delete mongo host"
+when "bootstrap"
+  puts "bootstrapping node"
+  # Find the instance and create the instance object here
+  Mondupe.new.bootstrap(instance_name, instance_fqdn, instance_ipaddress, chef_environment, chef_identity_file, chef_run_list, ssh_user)
+when "dumps3"
+  puts "getting dump"
+  Mondupe.new.get_db_dump_from_s3(instance_ipaddress, s3_bucket_name, dump_tmp_path, ssh_user, dump_file_name)
+when "restore"
+  puts "Restoring mongo database from dump"
+  Mondupe.new.restore_db(instance_ipaddress, dump_tmp_path, ssh_key, ssh_user, dump_file_name)
+when "terminate"
+  puts "Marking instance for termination"
+  Mondupe.new.terminate_instance(instance_id)
+when "list"
+  puts "Listing all instances created by MonDupe"
+  Mondupe.new.list_instances
+when "expire"
+  puts "Modifying expiration days for instance"
+  Mondupe.new.instance_expire(instance_id, instance_name, expire_days)
+else
+  puts opt_parser
+end
