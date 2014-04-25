@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 
+require 'mondupe'
 require 'optparse'
 
 $options = {}
@@ -76,26 +77,26 @@ end
 
 opt_parser.parse!
 
-instance_image_id = "ami-018c9568"
+instance_image_id = $options[:image] || ENV['MONDUPE_INSTANCE_IMAGE_ID'] || "ami-018c9568"
 instance_type = $options[:type] || "m3.xlarge"
-instance_name = $options[:name] || "my_awesome_new_instance1"
+instance_name = $options[:name] || nil
 instance_owner = $options[:owner] || ENV['USER'] || 'mondupe'
 instance_ipaddress = $options[:ipaddress] || nil
 instance_id = $options[:id] || nil
 dump_tmp_path = $options[:tmpdir] || '/tmp'
 expire_days = $options[:expire_days] || 3
 instance_count = 1
-chef_run_list = '"recipe[base], recipe[mongodb-corndog::production_copy]"'
-chef_identity_file = "~/.ssh/DevOps.pem"
-chef_environment = "internal_production"
-ssh_key = "~/.ssh/DevOps.pem"
-ssh_user = "ubuntu"
-route53_domain = "dealermatch.biz."
+chef_run_list = ENV['MONDUPE_CHEF_RUN_LIST'] || ""
+chef_environment = ENV['MONDUPE_CHEF_ENVIRONMENT'] || "default"
+ssh_key = ENV['MONDUPE_SSH_KEY'] || "~/.ssh/id_rsa"
+chef_identity_file = ENV['MONDUPE_CHEF_IDENTITY_FILE'] || ssh_key
+ssh_user = ENV['MONDUPE_SSH_USER'] || "ubuntu"
+route53_domain = ENV['MONDUPE_ROUTE53_DOMAIN'] || nil
 instance_fqdn = instance_name + "." + route53_domain
-key_pair_name = 'DevOps'
-security_group = 'mongo'
-s3_bucket_name = 'cde_production_mongo_backups'
-dump_file_name = 'mongodb.dump.tgz'
+key_pair_name = ENV['MONDUPE_KEY_PAIR_NAME'] || nil
+security_group = ENV['MONDUPE_SECURITY_GROUP'] || nil
+s3_bucket_name = ENV['MONDUPE_S3_BUCKET_NAME'] || nil
+dump_file_name = ENV['MONDUPE_DUMP_FILE_NAME'] || 'mongodb.dump.tgz'
 instance_volume_size = 60
 
 case ARGV[0]

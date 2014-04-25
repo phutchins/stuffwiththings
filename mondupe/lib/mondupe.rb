@@ -1,18 +1,13 @@
 #!/usr/bin/env ruby
 
-#require 'rubygems'
-#require 'bundler/setup'
 require 'aws-sdk'
 
 class Mondupe
-
   def create_instance(instance_name, instance_image_id, instance_type, instance_count, security_group, key_pair_name, expire_days, instance_owner, instance_volume_size)
     AWS.config(:access_key_id => ENV['AWS_ACCESS_KEY_ID'], :secret_access_key => ENV['AWS_SECRET_ACCESS_KEY'], region: 'us-east-1')
 
     ec2 = AWS::EC2.new(:access_key_id => ENV['AWS_ACCESS_KEY_ID'], :secret_access_key => ENV['AWS_SECRET_ACCESS_KEY'])
 
-    #key_pair = ec2.key_pairs.create('DevOps')
-    #private_key = key_pair.private_key;
     key_pair = ec2.key_pairs[key_pair_name]
 
     # Use this to create a new security group - Can have preset options
@@ -38,9 +33,6 @@ class Mondupe
 
     # Display some information about the new instance
     puts "Instance '#{instance_name}' created with ID '#{instance.id}'"
-
-    # TODO - Add tags for date/time created and how long to leave it running
-    #        Create process that runs as a cron job and shuts down expired hosts
 
     instance.tag('Name', :value => instance_name)
     instance.tag('owner', :value => instance_owner)
