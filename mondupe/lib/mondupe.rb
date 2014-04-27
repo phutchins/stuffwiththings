@@ -8,6 +8,8 @@ class Mondupe
 
     ec2 = AWS::EC2.new(:access_key_id => ENV['AWS_ACCESS_KEY_ID'], :secret_access_key => ENV['AWS_SECRET_ACCESS_KEY'])
 
+    puts "Creating with - Security Group: #{security_group} Instance Owner: #{instance_owner}"
+
     key_pair = ec2.key_pairs[key_pair_name]
 
     # Use this to create a new security group - Can have preset options
@@ -25,7 +27,7 @@ class Mondupe
       }],
       :instance_type => instance_type,
       :count => instance_count,
-      :security_groups => security_group,
+      :security_groups => [ security_group ],
       :key_pair => key_pair
     )
 
@@ -88,13 +90,13 @@ class Mondupe
   end
 
 
-  def bootstrap(instance_name, instance_fqdn, instance_ipaddress, chef_environment, chef_identity_file, chef_run_list, ssh_user)
+  def bootstrap(instance_name, instance_fqdn, instance_ipaddress, chef_environment, chef_identity_file, chef_run_list, ssh_user, knife_exec)
     # Bootstrap the new instance with chef
     puts "Bootstraping node with Chef..."
     puts "Running..."
-    puts "knife bootstrap #{instance_ipaddress} -N #{instance_fqdn[0...-1]} -E #{chef_environment} -i #{chef_identity_file} -r #{chef_run_list} -x #{ssh_user} --sudo"
+    #puts "#{knife_exec} bootstrap #{instance_ipaddress} -N #{instance_fqdn[0...-1]} -E #{chef_environment} -i #{chef_identity_file} -r #{chef_run_list} -x #{ssh_user} --sudo"
     sleep 30
-    system("knife bootstrap #{instance_ipaddress} -N #{instance_fqdn[0...-1]} -E #{chef_environment} -i #{chef_identity_file} -r #{chef_run_list} -x #{ssh_user} --sudo")
+    system("#{knife_exec} bootstrap #{instance_ipaddress} -N #{instance_fqdn[0...-1]} -E #{chef_environment} -i #{chef_identity_file} -r #{chef_run_list} -x #{ssh_user} --sudo")
   end
 
   def get_db_dump_from_s3(instance_ip, s3_bucket_name, dump_tmp_path, ssh_user, dump_file_name)
