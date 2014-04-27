@@ -4,12 +4,9 @@ require 'aws-sdk'
 
 class Mondupe
   def create_instance(instance_name, instance_image_id, instance_type, instance_count, security_group, key_pair_name, expire_days, instance_owner, instance_volume_size)
-    AWS.config(:access_key_id => ENV['AWS_ACCESS_KEY_ID'], :secret_access_key => ENV['AWS_SECRET_ACCESS_KEY'], region: 'us-east-1')
+    #AWS.config(:access_key_id => ENV['AWS_ACCESS_KEY_ID'], :secret_access_key => ENV['AWS_SECRET_ACCESS_KEY'], region: 'us-east-1')
 
     ec2 = AWS::EC2.new(:access_key_id => ENV['AWS_ACCESS_KEY_ID'], :secret_access_key => ENV['AWS_SECRET_ACCESS_KEY'])
-
-    puts "Creating with - Security Group: #{security_group} Instance Owner: #{instance_owner}"
-
     key_pair = ec2.key_pairs[key_pair_name]
 
     # Use this to create a new security group - Can have preset options

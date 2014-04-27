@@ -23,9 +23,9 @@ opt_parser = OptionParser.new do |opt|
   opt.separator "      restore    - Restore a mongo dump that exists on a host"
   opt.separator "                    Requires -n [name] -a [ipaddress]"
   opt.separator "                    Optional -t [tmpdir]"
-  opt.separator "      expire     - Reset the expiration days of a node"
+  opt.separator "      expire     - (coming soon) Reset the expiration days of a node"
   opt.separator "                    Requires ( -n [name] || -d [id] || -a [ipaddress] ) -e [expire_days]"
-  opt.separator "      list       - (coming soon) list all mongo hosts."
+  opt.separator "      list       - (coming soon) List all mongo hosts."
   opt.separator "      help       - Get help."
   opt.separator ""
   opt.separator "Options"
@@ -43,7 +43,7 @@ opt_parser = OptionParser.new do |opt|
   end
 
   opt.on("-e","--expire DAYS","Number of days the instance should stay on line. - Default: 3") do |days|
-    $options[:expire_days] = day
+    $options[:expire_days] = days
   end
 
   opt.on("-o","--owner NAME","Name of the owner of the host to be created. - Default: Your Username") do |owner|
@@ -73,6 +73,22 @@ opt_parser = OptionParser.new do |opt|
   opt.on("-h","--help","help") do
     puts opt_parser
   end
+
+  opt.separator "Environment Variables - Set these in your environment. They should be self explanitory."
+  opt.separator "  Required:"
+  opt.separator "   - MONDUPE_ROUTE53_DOMAIN"
+  opt.separator "   - MONDUPE_SECURITY_GROUP"
+  opt.separator "   - MONDUPE_S3_BUCKET_NAME"
+  opt.separator "   - MONDUPE_KEY_PAIR_NAME"
+  opt.separator ""
+  opt.separator "  Optional: (have sane defaults)"
+  opt.separator "   - MONDUPE_INSTANCE_IMAGE_ID"
+  opt.separator "   - MONDUPE_CHEF_RUN_LIST"
+  opt.separator "   - MONDUPE_CHEF_IDENTITY_FILE"
+  opt.separator "   - MONDUPE_CHEF_ENVIRONMENT"
+  opt.separator "   - MONDUPE_SSH_KEY"
+  opt.separator "   - MONDUPE_SSH_USER"
+  opt.separator "   - MONDUPE_DUMP_FILE_NAME"
 end
 
 opt_parser.parse!
@@ -92,27 +108,31 @@ ssh_key = ENV['MONDUPE_SSH_KEY'] || "~/.ssh/id_rsa"
 chef_identity_file = ENV['MONDUPE_CHEF_IDENTITY_FILE'] || ssh_key
 ssh_user = ENV['MONDUPE_SSH_USER'] || "ubuntu"
 route53_domain = ENV['MONDUPE_ROUTE53_DOMAIN'] || nil
-instance_fqdn = instance_name + "." + route53_domain
+instance_fqdn = ( instance_name + "." + route53_domain ) unless instance_name.nil? || route53_domain.nil?
 key_pair_name = ENV['MONDUPE_KEY_PAIR_NAME'] || nil
 security_group = ENV['MONDUPE_SECURITY_GROUP'] || nil
 s3_bucket_name = ENV['MONDUPE_S3_BUCKET_NAME'] || nil
 dump_file_name = ENV['MONDUPE_DUMP_FILE_NAME'] || 'mongodb.dump.tgz'
+knife_exec = ENV['MONDUPE_KNIFE_EXEC'] || 'knife'
 instance_volume_size = 60
 
 case ARGV[0]
 when "create"
+  start_time = Time.now
+  total_seconds = Time.now - start_time
   puts "Creating AWS EC2 Instance with MongoDB and restoring from latest production backup"
   instance = Mondupe.new.create_instance(instance_name, instance_image_id, instance_type, instance_count, security_group, key_pair_name, expire_days, instance_owner, instance_volume_size)
   Mondupe.new.create_dns(instance_fqdn, route53_domain, instance)
-  Mondupe.new.bootstrap(instance_name, instance_fqdn, instance.ip_address, chef_environment, chef_identity_file, chef_run_list, ssh_user)
+  Mondupe.new.bootstrap(instance_name, instance_fqdn, instance.ip_address, chef_environment, chef_identity_file, chef_run_list, ssh_user, knife_exec)
   Mondupe.new.get_db_dump_from_s3(instance.ip_address, s3_bucket_name, dump_tmp_path, ssh_user, dump_file_name)
   Mondupe.new.restore_db(instance.ip_address, dump_tmp_path, ssh_key, ssh_user, dump_file_name)
+  puts " - - - Total Run Time: #{((total_seconds % 3600) / 60).to_i}m #{((total_seconds % 3600) % 60).to_i}s - - -"
 when "delete"
   puts "delete mongo host"
 when "bootstrap"
   puts "bootstrapping node"
   # Find the instance and create the instance object here
-  Mondupe.new.bootstrap(instance_name, instance_fqdn, instance_ipaddress, chef_environment, chef_identity_file, chef_run_list, ssh_user)
+  Mondupe.new.bootstrap(instance_name, instance_fqdn, instance_ipaddress, chef_environment, chef_identity_file, chef_run_list, ssh_user, knife_exec)
 when "dumps3"
   puts "getting dump"
   Mondupe.new.get_db_dump_from_s3(instance_ipaddress, s3_bucket_name, dump_tmp_path, ssh_user, dump_file_name)
