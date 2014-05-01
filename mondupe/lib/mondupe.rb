@@ -114,11 +114,11 @@ class Mondupe
     # TODO - Fail the process if any step fails
     puts "#{Time.now.to_s} - Dropping existing database"
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "echo 'db.dropDatabase()' | mongo cde_production"`
-    puts "#{Time.now.to_s} - Database drop complete"
+    if $?.success? then puts "#{Time.now.to_s} - Database drop complete" else die("Error dropping database") end
     puts "Restoring Mongo Database from extracted dump: #{File.join(dump_tmp_path, "cde_production")}"
-    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "cd /tmp; tar xf #{dump_file_name}; time mongorestore /tmp/cde_production"`
+    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "cd #{dump_tmp_path}; tar xf #{dump_file_name}; time mongorestore /tmp/cde_production"`
     puts "Removing database archive file"
-    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf /tmp/#{File.join(dump_tmp_path, dump_file_name)}"`
+    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf #{File.join(dump_tmp_path, dump_file_name)}"`
     puts "#{Time.now.to_s} - Removing saved searches"
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "mongo cde_production --eval \\"db.users.update({save_searches: {$ne: null}}, {$unset: {save_searches: ''}}, {multi: true})\\""`
     puts "#{Time.now.to_s} - Cleaning up our mess..."
