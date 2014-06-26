@@ -92,8 +92,15 @@ class Mondupe
     puts "Bootstraping node with Chef..."
     puts "Running..."
     #puts "#{knife_exec} bootstrap #{instance_ipaddress} -N #{instance_fqdn[0...-1]} -E #{chef_environment} -i #{chef_identity_file} -r #{chef_run_list} -x #{ssh_user} --sudo"
-    sleep 30
-    system("#{knife_exec} bootstrap #{instance_ipaddress} -N #{instance_fqdn[0...-1]} -E #{chef_environment} -i #{chef_identity_file} -r #{chef_run_list} -x #{ssh_user} --sudo")
+    tries = 20
+    begin
+      sleep 30
+      system("#{knife_exec} bootstrap #{instance_ipaddress} -N #{instance_fqdn[0...-1]} -E #{chef_environment} -i #{chef_identity_file} -r #{chef_run_list} -x #{ssh_user} --sudo") or raise "Knife bootstrap failed"
+    rescue
+      tries -= 1
+      puts "Cannot connect to node, trying again... #{tries} left."
+      retry if tries > 0
+    end
   end
 
   def get_db_dump_from_s3(instance_ip, s3_bucket_name, dump_tmp_path, ssh_user, dump_file_name)
