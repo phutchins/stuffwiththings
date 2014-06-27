@@ -121,22 +121,22 @@ class Mondupe
     # TODO - Fail the process if any step fails
     puts "#{Time.now.to_s} - Dropping existing database"
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "echo 'db.dropDatabase()' | mongo cde_production"`
-    if $?.success? then puts "#{Time.now.to_s} - Database drop complete" else die("Error dropping database") end
+    if $?.success? then puts "#{Time.now.to_s} - Database drop complete" else abort("Error dropping database") end
     puts "Extracting database dump archive file..."
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "cd #{dump_tmp_path}; tar xf #{dump_file_name}"`
-    if $?.success? then puts "#{Time.now.to_s} - Extraction complete!" else die("Error extracting archive") end
+    if $?.success? then puts "#{Time.now.to_s} - Extraction complete!" else abort("Error extracting archive") end
     puts "Restoring Mongo Database from extracted dump: #{File.join(dump_tmp_path, "cde_production")}"
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "time mongorestore #{File.join(dump_tmp_path, "cde_production")}"`
-    if $?.success? then puts "#{Time.now.to_s} - Database restore complete!" else die("Error restoring databse") end
+    if $?.success? then puts "#{Time.now.to_s} - Database restore complete!" else abort("Error restoring databse") end
     puts "Removing database archive file"
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf #{File.join(dump_tmp_path, dump_file_name)}"`
-    if $?.success? then puts "#{Time.now.to_s} - Archive removed!" else die("Error removing archive") end
+    if $?.success? then puts "#{Time.now.to_s} - Archive removed!" else abort("Error removing archive") end
     puts "#{Time.now.to_s} - Removing saved searches"
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "mongo cde_production --eval \\"db.users.update({save_searches: {$ne: null}}, {$unset: {save_searches: ''}}, {multi: true})\\""`
-    if $?.success? then puts "#{Time.now.to_s} - Saved searches removed" else die("Error removing saved searches") end
+    if $?.success? then puts "#{Time.now.to_s} - Saved searches removed" else abort("Error removing saved searches") end
     puts "#{Time.now.to_s} - Cleaning up our mess..."
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf #{File.join(dump_tmp_path, 'cde_production')}"`
-    if $?.success? then puts "#{Time.now.to_s} - Mess cleaned up!" else die("Error cleaning up after myself...") end
+    if $?.success? then puts "#{Time.now.to_s} - Mess cleaned up!" else abort("Error cleaning up after myself...") end
   end
 
   def terminate(instance_id)

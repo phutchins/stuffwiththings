@@ -5,7 +5,7 @@ require 'optparse'
 
 $options = {}
 
-ValidHostnameRegex=/(?!-)[A-Z\d-]{1,63}(?<!-)$/
+ValidHostnameRegex=/(?![0-9]+$)(?!-)[a-zA-Z0-9-]{,63}(?<!-)/
 
 opt_parser = OptionParser.new do |opt|
   opt.banner = "Usage: mondupe COMMAND [OPTIONS]"
