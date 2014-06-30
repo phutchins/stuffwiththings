@@ -132,8 +132,9 @@ class Mondupe
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf #{File.join(dump_tmp_path, dump_file_name)}"`
     if $?.success? then puts "#{Time.now.to_s} - Archive removed!" else abort("Error removing archive") end
     puts "#{Time.now.to_s} - Removing saved searches"
-    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "mongo cde_production --eval \\"db.users.update({save_searches: {$ne: null}}, {$unset: {save_searches: ''}}, {multi: true})\\""`
-    if $?.success? then puts "#{Time.now.to_s} - Saved searches removed" else abort("Error removing saved searches") end
+    puts `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "mongo cde_production --eval \\"db.users.update({save_searches: {$ne: null}}, {$unset: {save_searches: ''}}, {multi: true})\\""`
+    #Need to find a way to test the prior command as it does not return a success or fail like the other commands
+    #if $?.success? then puts "#{Time.now.to_s} - Saved searches removed" else abort("Error removing saved searches") end
     puts "#{Time.now.to_s} - Cleaning up our mess..."
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf #{File.join(dump_tmp_path, 'cde_production')}"`
     if $?.success? then puts "#{Time.now.to_s} - Mess cleaned up!" else abort("Error cleaning up after myself...") end
