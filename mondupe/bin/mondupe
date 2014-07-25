@@ -22,7 +22,7 @@ opt_parser = OptionParser.new do |opt|
   opt.separator "                    Requires -n [name] -a [ipaddress]"
   opt.separator "      restore    - Restore a mongo dump that exists on a host"
   opt.separator "                    Requires -n [name] -a [ipaddress]"
-  opt.separator "                    Optional -t [tmpdir]"
+  opt.separator "                    Optional -t [tmpdir] -u [mongo_username] -p [mongo_password] -c [mongo_authdb]"
   opt.separator "      expire     - (coming soon) Reset the expiration days of a node"
   opt.separator "                    Requires ( -n [name] || -d [id] || -a [ipaddress] ) -e [expire_days]"
   opt.separator "      list       - (coming soon) List all mongo hosts."
@@ -70,6 +70,22 @@ opt_parser = OptionParser.new do |opt|
     $options[:size] = size
   end
 
+  opt.on("-n","--mongodbname","Database name to restore to") do |mongo_db_name|
+    $options[:mongo_db_name] = mongo_db_name
+  end
+
+  opt.on("-u","--mongouser","Username to authenticate to mongodb with") do |mongo_user|
+    $options[:mongo_user] = mongo_user
+  end
+
+  opt.on("-p","--mongopass","Password to authenticate to mongodb with") do |mongo_pass|
+    $options[:mongo_pass] = mongo_pass
+  end
+
+  opt.on("-c","--mongoauthdb","Database to authenticate against for mongo") do |mongo_auth_db|
+    $options[:mongo_auth_db] = mongo_auth_db
+  end
+
   opt.on("-h","--help","help") do
     puts opt_parser
   end
@@ -81,6 +97,11 @@ opt_parser = OptionParser.new do |opt|
   opt.separator "   - MONDUPE_S3_BUCKET_NAME"
   opt.separator "   - MONDUPE_KEY_PAIR_NAME"
   opt.separator ""
+  opt.separator "  Optional: (no default)"
+  opt.separator "   - MONGO_USER"
+  opt.separator "   - MONGO_PASS"
+  opt.separator "   - MONGO_AUTH_DB"
+  opt.separator ""
   opt.separator "  Optional: (have sane defaults)"
   opt.separator "   - MONDUPE_INSTANCE_IMAGE_ID"
   opt.separator "   - MONDUPE_CHEF_RUN_LIST"
@@ -89,6 +110,9 @@ opt_parser = OptionParser.new do |opt|
   opt.separator "   - MONDUPE_SSH_KEY"
   opt.separator "   - MONDUPE_SSH_USER"
   opt.separator "   - MONDUPE_DUMP_FILE_NAME"
+  opt.separator ""
+  opt.separator "  Optional as ENV Variable. Must be specified via command line or ENV. No default."
+  opt.separator "   - MONGO_DB_NAME"
 end
 
 opt_parser.parse!
@@ -101,6 +125,10 @@ instance_ipaddress = $options[:ipaddress] || nil
 instance_id = $options[:id] || nil
 dump_tmp_path = $options[:tmpdir] || '/tmp'
 expire_days = $options[:expire_days] || 3
+mongo_db_name = $options[:mongo_db_name] || ENV['MONGO_DB_NAME'] || nil
+mongo_user = $options[:mongo_user] || ENV['MONGO_USER'] || nil
+mongo_pass = $options[:mongo_pass] || ENV['MONGO_PASS'] || nil
+mongo_auth_db = $options[:mongo_auth_db] || ENV['MONGO_AUTH_DB'] || nil
 instance_count = 1
 chef_run_list = ENV['MONDUPE_CHEF_RUN_LIST'] || ""
 chef_environment = ENV['MONDUPE_CHEF_ENVIRONMENT'] || "default"
@@ -125,7 +153,7 @@ when "create"
   Mondupe.new.create_dns(instance_fqdn, route53_domain, instance)
   Mondupe.new.bootstrap(instance_name, instance_fqdn, instance.ip_address, chef_environment, chef_identity_file, chef_run_list, ssh_user, knife_exec)
   Mondupe.new.get_db_dump_from_s3(instance.ip_address, s3_bucket_name, dump_tmp_path, ssh_user, dump_file_name)
-  Mondupe.new.restore_db(instance.ip_address, dump_tmp_path, ssh_key, ssh_user, dump_file_name)
+  Mondupe.new.restore_db(instance.ip_address, dump_tmp_path, ssh_key, ssh_user, dump_file_name, mongo_db_name, mongo_user, mongo_pass, mongo_auth_db)
   puts " - - - Total Run Time: #{((total_seconds % 3600) / 60).to_i}m #{((total_seconds % 3600) % 60).to_i}s - - -"
 when "delete"
   puts "delete mongo host"
@@ -138,7 +166,7 @@ when "dumps3"
   Mondupe.new.get_db_dump_from_s3(instance_ipaddress, s3_bucket_name, dump_tmp_path, ssh_user, dump_file_name)
 when "restore"
   puts "Restoring mongo database from dump"
-  Mondupe.new.restore_db(instance_ipaddress, dump_tmp_path, ssh_key, ssh_user, dump_file_name)
+  Mondupe.new.restore_db(instance_ipaddress, dump_tmp_path, ssh_key, ssh_user, dump_file_name, mongo_db_name, mongo_user, mongo_pass, mongo_auth_db)
 when "terminate"
   puts "Marking instance for termination"
   Mondupe.new.terminate_instance(instance_id)

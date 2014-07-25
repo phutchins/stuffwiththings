@@ -112,13 +112,21 @@ class Mondupe
     puts "Download URL: #{download_url}"
     puts "#{Time.now.to_s} - Starting download."
     puts "  Please wait..."
-    `ssh -i ~/.ssh/DevOps.pem #{ssh_user}@#{instance_ip} "cd #{dump_tmp_path} && wget '#{download_url}' -O #{File.join(dump_tmp_path, dump_file_name)} 2&>1"`
+    `ssh -i ~/.ssh/DevOps.pem #{ssh_user}@#{instance_ip} "sudo mkdir -p #{dump_tmp_path} && cd #{dump_tmp_path} && wget '#{download_url}' -O #{File.join(dump_tmp_path, dump_file_name)} 2&>1"`
     puts "#{Time.now.to_s} - Download completed"
   end
 
-  def restore_db(instance_ip, dump_tmp_path, ssh_key, ssh_user, dump_file_name)
+  def add_user(instance_ip, username, password, database, roles)
+    #add db users here
+  end
+
+  def restore_db(instance_ip, dump_tmp_path, ssh_key, ssh_user, dump_file_name, mongo_db_name, mongo_user, mongo_pass, mongo_auth_db)
     # Restore from the database dump
     # TODO - Fail the process if any step fails
+    abort "You must specify a database name to drop and restore. Use -n [name] or ENV['MONGO_DB_NAME'] to set this value." if mongo_db_name.nil?
+    db_connect_string = "mongo #{mongo_db_name}"
+    db_connect_string << " -u \"#{mongo_user}\" -p \"#{mongo_pass}\"" if !mongo_user.nil? && !mongo_pass.nil?
+    db_connect_string << " --authenticationDatabase \"#{mongo_auth_db}\"" if !mongo_auth_db.nil?
     puts "#{Time.now.to_s} - Dropping existing database"
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "echo 'db.dropDatabase()' | mongo cde_production"`
     if $?.success? then puts "#{Time.now.to_s} - Database drop complete" else abort("Error dropping database") end
@@ -132,7 +140,7 @@ class Mondupe
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf #{File.join(dump_tmp_path, dump_file_name)}"`
     if $?.success? then puts "#{Time.now.to_s} - Archive removed!" else abort("Error removing archive") end
     puts "#{Time.now.to_s} - Removing saved searches"
-    puts `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "mongo cde_production --eval \\"db.users.update({save_searches: {$ne: null}}, {$unset: {save_searches: ''}}, {multi: true})\\""`
+    puts `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "mongo cde_production --eval 'db.users.update({save_searches: {$ne: null}}, {$unset: {save_searches: \\"\\"}}, {multi: true})'"`
     #Need to find a way to test the prior command as it does not return a success or fail like the other commands
     #if $?.success? then puts "#{Time.now.to_s} - Saved searches removed" else abort("Error removing saved searches") end
     puts "#{Time.now.to_s} - Cleaning up our mess..."

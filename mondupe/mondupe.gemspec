@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name        = 'mondupe'
-  s.version     = '0.0.8'
-  s.date        = '2014-04-25'
+  s.version     = '0.0.9'
+  s.date        = '2014-07-25'
   s.summary     = 'MonDupe'
   s.description = 'Create an AWS EC2 node and restore a MongoDB dump to it from an AWS S3 bucket'
   s.authors     = ["Philip Hutchins"]
