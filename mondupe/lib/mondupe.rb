@@ -128,23 +128,23 @@ class Mondupe
     db_connect_string << " -u \"#{mongo_user}\" -p \"#{mongo_pass}\"" if !mongo_user.nil? && !mongo_pass.nil?
     db_connect_string << " --authenticationDatabase \"#{mongo_auth_db}\"" if !mongo_auth_db.nil?
     puts "#{Time.now.to_s} - Dropping existing database"
-    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "echo 'db.dropDatabase()' | mongo cde_production"`
+    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "echo 'db.dropDatabase()' | #{db_connect_string}"`
     if $?.success? then puts "#{Time.now.to_s} - Database drop complete" else abort("Error dropping database") end
     puts "Extracting database dump archive file..."
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "cd #{dump_tmp_path}; tar xf #{dump_file_name}"`
     if $?.success? then puts "#{Time.now.to_s} - Extraction complete!" else abort("Error extracting archive") end
-    puts "Restoring Mongo Database from extracted dump: #{File.join(dump_tmp_path, "cde_production")}"
-    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "time mongorestore #{File.join(dump_tmp_path, "cde_production")}"`
+    puts "Restoring Mongo Database from extracted dump: #{File.join(dump_tmp_path, "#{mongo_db_name}")}"
+    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "time mongorestore #{File.join(dump_tmp_path, "#{mongo_db_name}")}"`
     if $?.success? then puts "#{Time.now.to_s} - Database restore complete!" else abort("Error restoring databse") end
     puts "Removing database archive file"
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf #{File.join(dump_tmp_path, dump_file_name)}"`
     if $?.success? then puts "#{Time.now.to_s} - Archive removed!" else abort("Error removing archive") end
     puts "#{Time.now.to_s} - Removing saved searches"
-    puts `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "mongo cde_production --eval 'db.users.update({save_searches: {$ne: null}}, {$unset: {save_searches: \\"\\"}}, {multi: true})'"`
+    puts `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "#{db_connect_string} --eval 'db.users.update({save_searches: {$ne: null}}, {$unset: {save_searches: \\"\\"}}, {multi: true})'"`
     #Need to find a way to test the prior command as it does not return a success or fail like the other commands
     #if $?.success? then puts "#{Time.now.to_s} - Saved searches removed" else abort("Error removing saved searches") end
     puts "#{Time.now.to_s} - Cleaning up our mess..."
-    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf #{File.join(dump_tmp_path, 'cde_production')}"`
+    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf #{File.join(dump_tmp_path, "#{mongo_db_name}")}"`
     if $?.success? then puts "#{Time.now.to_s} - Mess cleaned up!" else abort("Error cleaning up after myself...") end
   end
 

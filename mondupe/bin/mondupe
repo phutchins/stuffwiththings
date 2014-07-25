@@ -70,7 +70,7 @@ opt_parser = OptionParser.new do |opt|
     $options[:size] = size
   end
 
-  opt.on("-n","--mongodbname","Database name to restore to") do |mongo_db_name|
+  opt.on("-r","--mongodbname","Database name to restore to") do |mongo_db_name|
     $options[:mongo_db_name] = mongo_db_name
   end
 
@@ -125,10 +125,10 @@ instance_ipaddress = $options[:ipaddress] || nil
 instance_id = $options[:id] || nil
 dump_tmp_path = $options[:tmpdir] || '/tmp'
 expire_days = $options[:expire_days] || 3
-mongo_db_name = $options[:mongo_db_name] || ENV['MONGO_DB_NAME'] || nil
-mongo_user = $options[:mongo_user] || ENV['MONGO_USER'] || nil
-mongo_pass = $options[:mongo_pass] || ENV['MONGO_PASS'] || nil
-mongo_auth_db = $options[:mongo_auth_db] || ENV['MONGO_AUTH_DB'] || nil
+mongo_db_name = $options[:mongo_db_name] || ENV['MONDUPE_MONGO_DB_NAME'] || nil
+mongo_user = $options[:mongo_user] || ENV['MONDUPE_MONGO_USER'] || nil
+mongo_pass = $options[:mongo_pass] || ENV['MONDUPE_MONGO_PASS'] || nil
+mongo_auth_db = $options[:mongo_auth_db] || ENV['MONDUPE_MONGO_AUTH_DB'] || nil
 instance_count = 1
 chef_run_list = ENV['MONDUPE_CHEF_RUN_LIST'] || ""
 chef_environment = ENV['MONDUPE_CHEF_ENVIRONMENT'] || "default"
