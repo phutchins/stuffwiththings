@@ -73,23 +73,23 @@ opt_parser = OptionParser.new do |opt|
     $options[:size] = size
   end
 
-  opt.on("-r","--mongodbname","Database name to restore to") do |mongo_db_name|
+  opt.on("-r","--mongodbname DATABASE","Database name to restore to") do |mongo_db_name|
     $options[:mongo_db_name] = mongo_db_name
   end
 
-  opt.on("-u","--mongouser","Username to authenticate to mongodb with") do |mongo_user|
+  opt.on("-u","--mongouser USERNAME","Username to authenticate to mongodb with") do |mongo_user|
     $options[:mongo_user] = mongo_user
   end
 
-  opt.on("-p","--mongopass","Password to authenticate to mongodb with") do |mongo_pass|
+  opt.on("-p","--mongopass PASSWORD","Password to authenticate to mongodb with") do |mongo_pass|
     $options[:mongo_pass] = mongo_pass
   end
 
-  opt.on("-c","--mongoauthdb","Database to authenticate against for mongo") do |mongo_auth_db|
+  opt.on("-c","--mongoauthdb DATABASE","Database to authenticate against for mongo") do |mongo_auth_db|
     $options[:mongo_auth_db] = mongo_auth_db
   end
 
-  opt.on("-x","--execute","Java Script to execute against DB") do |java_string|
+  opt.on("-x","--execute SCRIPT","Java Script to execute against DB. Must be in quotes.") do |java_string|
     $options[:java_string] = java_string
   end
 
@@ -105,9 +105,9 @@ opt_parser = OptionParser.new do |opt|
   opt.separator "   - MONDUPE_KEY_PAIR_NAME"
   opt.separator ""
   opt.separator "  Optional: (no default)"
-  opt.separator "   - MONGO_USER"
-  opt.separator "   - MONGO_PASS"
-  opt.separator "   - MONGO_AUTH_DB"
+  opt.separator "   - MONDUPE_MONGO_USER"
+  opt.separator "   - MONDUPE_MONGO_PASS"
+  opt.separator "   - MONDUPE_MONGO_AUTH_DB"
   opt.separator ""
   opt.separator "  Optional: (have sane defaults)"
   opt.separator "   - MONDUPE_INSTANCE_IMAGE_ID"
@@ -175,7 +175,7 @@ when "dumps3"
 when "restore"
   puts "Restoring mongo database from dump"
   Mondupe.new.restore_db(instance_host_address, dump_tmp_path, ssh_key, ssh_user, dump_file_name, mongo_db_name, mongo_user, mongo_pass, mongo_auth_db)
-when 'execute'
+when "execute"
   puts "Executing JS against database"
   Mondupe.new.execute_js(instance_host_address, ssh_key, ssh_user, java_string, mongo_db_name, mongo_user, mongo_pass, mongo_auth_db)
 when "terminate"

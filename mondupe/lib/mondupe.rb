@@ -124,34 +124,45 @@ class Mondupe
     # Restore from the database dump
     # TODO - Fail the process if any step fails
     abort "You must specify a database name to drop and restore. Use -n [name] or ENV['MONGO_DB_NAME'] to set this value." if mongo_db_name.nil?
+    ssh_command = "ssh -i #{ssh_key} #{ssh_user}@#{instance_ip}"
     db_connect_string = "mongo #{mongo_db_name}"
     db_connect_string << " -u \"#{mongo_user}\" -p \"#{mongo_pass}\"" if !mongo_user.nil? && !mongo_pass.nil?
     db_connect_string << " --authenticationDatabase \"#{mongo_auth_db}\"" if !mongo_auth_db.nil?
+    tries = 20
+    begin
+      `#{ssh_command} "echo 'db.serverStatus()' | #{db_connect_string}"` or raise "Connection failed..."
+      sleep 20
+    rescue
+      tries -= 1
+      puts "Could not connect to DB. Trying again... #{tries} left."
+      retry if tries > 0
+    end
     puts "#{Time.now.to_s} - Dropping existing database"
-    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "echo 'db.dropDatabase()' | #{db_connect_string}"`
+    `#{ssh_command} "echo 'db.dropDatabase()' | #{db_connect_string}"`
     if $?.success? then puts "#{Time.now.to_s} - Database drop complete" else abort("Error dropping database") end
     puts "Extracting database dump archive file..."
-    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "cd #{dump_tmp_path}; tar xf #{dump_file_name}"`
+    `#{ssh_command} cd #{dump_tmp_path}; tar xf #{dump_file_name}"`
     if $?.success? then puts "#{Time.now.to_s} - Extraction complete!" else abort("Error extracting archive") end
     puts "Restoring Mongo Database from extracted dump: #{File.join(dump_tmp_path, "#{mongo_db_name}")}"
-    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "time mongorestore #{File.join(dump_tmp_path, "#{mongo_db_name}")}"`
+    `#{ssh_command} "time mongorestore #{File.join(dump_tmp_path, "#{mongo_db_name}")}"`
     if $?.success? then puts "#{Time.now.to_s} - Database restore complete!" else abort("Error restoring databse") end
     puts "Removing database archive file"
-    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf #{File.join(dump_tmp_path, dump_file_name)}"`
+    `#{ssh_command} "rm -rf #{File.join(dump_tmp_path, dump_file_name)}"`
     if $?.success? then puts "#{Time.now.to_s} - Archive removed!" else abort("Error removing archive") end
     puts "#{Time.now.to_s} - Cleaning up our mess..."
-    `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf #{File.join(dump_tmp_path, "#{mongo_db_name}")}"`
+    `#{ssh_command} "rm -rf #{File.join(dump_tmp_path, "#{mongo_db_name}")}"`
     if $?.success? then puts "#{Time.now.to_s} - Mess cleaned up!" else abort("Error cleaning up after myself...") end
   end
 
   def execute_js(instance_dns, ssh_key, ssh_user, java_command, mongo_db_name, mongo_user, mongo_pass, mongo_auth_db)
-    abort "You must specify a database name to execute java script against. Use -n [name] or ENV['MONGO_DB_NAME'] to set this value." if mongo_db_name.nil?
+    abort "You must specify a database name to execute java script against. Use -r [mongo_db_name] or ENV['MONGO_DB_NAME'] to set this value." if mongo_db_name.nil?
     db_connect_string = "mongo #{mongo_db_name}"
     db_connect_string << " -u \"#{mongo_user}\" -p \"#{mongo_pass}\"" if !mongo_user.nil? && !mongo_pass.nil?
     db_connect_string << " --authenticationDatabase \"#{mongo_auth_db}\"" if !mongo_auth_db.nil?
-    puts "Connect String: #{db_connect_string}"
+    #puts "Connect String: #{db_connect_string}"
     puts "#{Time.now.to_s} - Running command on #{instance_dns} against #{mongo_db_name}"
-    db_output = `ssh -i #{ssh_key} #{ssh_user}@#{instance_dns} "echo '#{java_command}' | #{db_connect_string}"`
+    puts "JS Query: #{java_command}"
+    db_output = `ssh -i #{ssh_key} #{ssh_user}@#{instance_dns} "#{db_connect_string} --eval \'#{java_command}\'"`
     puts db_output
     if $?.success? then puts "#{Time.now.to_s} - Command execution complete" else abort("Error executing command") end
   end
