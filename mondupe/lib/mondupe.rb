@@ -139,13 +139,21 @@ class Mondupe
     puts "Removing database archive file"
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf #{File.join(dump_tmp_path, dump_file_name)}"`
     if $?.success? then puts "#{Time.now.to_s} - Archive removed!" else abort("Error removing archive") end
-    puts "#{Time.now.to_s} - Removing saved searches"
-    puts `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "#{db_connect_string} --eval 'db.users.update({save_searches: {$ne: null}}, {$unset: {save_searches: \\"\\"}}, {multi: true})'"`
-    #Need to find a way to test the prior command as it does not return a success or fail like the other commands
-    #if $?.success? then puts "#{Time.now.to_s} - Saved searches removed" else abort("Error removing saved searches") end
     puts "#{Time.now.to_s} - Cleaning up our mess..."
     `ssh -i #{ssh_key} #{ssh_user}@#{instance_ip} "rm -rf #{File.join(dump_tmp_path, "#{mongo_db_name}")}"`
     if $?.success? then puts "#{Time.now.to_s} - Mess cleaned up!" else abort("Error cleaning up after myself...") end
+  end
+
+  def execute_js(instance_dns, ssh_key, ssh_user, java_command, mongo_db_name, mongo_user, mongo_pass, mongo_auth_db)
+    abort "You must specify a database name to execute java script against. Use -n [name] or ENV['MONGO_DB_NAME'] to set this value." if mongo_db_name.nil?
+    db_connect_string = "mongo #{mongo_db_name}"
+    db_connect_string << " -u \"#{mongo_user}\" -p \"#{mongo_pass}\"" if !mongo_user.nil? && !mongo_pass.nil?
+    db_connect_string << " --authenticationDatabase \"#{mongo_auth_db}\"" if !mongo_auth_db.nil?
+    puts "Connect String: #{db_connect_string}"
+    puts "#{Time.now.to_s} - Running command on #{instance_dns} against #{mongo_db_name}"
+    db_output = `ssh -i #{ssh_key} #{ssh_user}@#{instance_dns} "echo '#{java_command}' | #{db_connect_string}"`
+    puts db_output
+    if $?.success? then puts "#{Time.now.to_s} - Command execution complete" else abort("Error executing command") end
   end
 
   def terminate(instance_id)

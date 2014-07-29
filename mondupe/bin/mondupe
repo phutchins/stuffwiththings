@@ -13,18 +13,21 @@ opt_parser = OptionParser.new do |opt|
   opt.separator "Commands           Description"
   opt.separator "      create     - create new mongo host."
   opt.separator "                    Requires -n [name]"
-  opt.separator "                    Optional -i [image] -e [expire_days] -o [owner] -t [type] -a [ipaddress] -s [size]"
+  opt.separator "                    Optional -i [image] -e [expire_days] -o [owner] -t [type] -a [host_address] -s [size]"
   opt.separator "      delete     - delete existing mongo host."
   opt.separator "                    Requires -n [name] || -d [id]"
   opt.separator "      bootstrap  - push chef-client and configuration to the node."
-  opt.separator "                    Requires -n [name] -a [ipaddress]"
+  opt.separator "                    Requires -n [name] -a [host_address]"
   opt.separator "      dumps3     - retrieve the database dump from s3."
-  opt.separator "                    Requires -n [name] -a [ipaddress]"
+  opt.separator "                    Requires -n [name] -a [host_address]"
   opt.separator "      restore    - Restore a mongo dump that exists on a host"
-  opt.separator "                    Requires -n [name] -a [ipaddress]"
+  opt.separator "                    Requires -n [name] -a [host_address]"
   opt.separator "                    Optional -t [tmpdir] -u [mongo_username] -p [mongo_password] -c [mongo_authdb]"
+  opt.separator "      execute    - Execute some java script against database"
+  opt.separator "                    Requires -a [dns_address] -x '[javascript]'"
+  opt.separator "                    Optional -r [db_name]"
   opt.separator "      expire     - (coming soon) Reset the expiration days of a node"
-  opt.separator "                    Requires ( -n [name] || -d [id] || -a [ipaddress] ) -e [expire_days]"
+  opt.separator "                    Requires ( -n [name] || -d [id] || -a [host_address] ) -e [expire_days]"
   opt.separator "      list       - (coming soon) List all mongo hosts."
   opt.separator "      help       - Get help."
   opt.separator ""
@@ -54,8 +57,8 @@ opt_parser = OptionParser.new do |opt|
     $options[:type] = type
   end
 
-  opt.on("-a","--ipaddress IPADDRESS","IP address of node that already exists. Not to be used with creating new nodes") do |address|
-    $options[:ipaddress] = address
+  opt.on("-a","--address HOST_ADDRESS","IP or DNS address of node that already exists. Not to be used with creating new nodes") do |address|
+    $options[:host_address] = address
   end
 
   opt.on("-d","--id INSTANCE_ID","AWS ID of the instance, must exist already") do |id|
@@ -84,6 +87,10 @@ opt_parser = OptionParser.new do |opt|
 
   opt.on("-c","--mongoauthdb","Database to authenticate against for mongo") do |mongo_auth_db|
     $options[:mongo_auth_db] = mongo_auth_db
+  end
+
+  opt.on("-x","--execute","Java Script to execute against DB") do |java_string|
+    $options[:java_string] = java_string
   end
 
   opt.on("-h","--help","help") do
@@ -121,7 +128,7 @@ instance_image_id = $options[:image] || ENV['MONDUPE_INSTANCE_IMAGE_ID'] || "ami
 instance_type = $options[:type] || "m3.xlarge"
 instance_name = $options[:name] || nil
 instance_owner = $options[:owner] || ENV['USER'] || 'mondupe'
-instance_ipaddress = $options[:ipaddress] || nil
+instance_host_address = $options[:host_address] || nil
 instance_id = $options[:id] || nil
 dump_tmp_path = $options[:tmpdir] || '/tmp'
 expire_days = $options[:expire_days] || 3
@@ -129,6 +136,7 @@ mongo_db_name = $options[:mongo_db_name] || ENV['MONDUPE_MONGO_DB_NAME'] || nil
 mongo_user = $options[:mongo_user] || ENV['MONDUPE_MONGO_USER'] || nil
 mongo_pass = $options[:mongo_pass] || ENV['MONDUPE_MONGO_PASS'] || nil
 mongo_auth_db = $options[:mongo_auth_db] || ENV['MONDUPE_MONGO_AUTH_DB'] || nil
+java_string = $options[:java_string] || nil
 instance_count = 1
 chef_run_list = ENV['MONDUPE_CHEF_RUN_LIST'] || ""
 chef_environment = ENV['MONDUPE_CHEF_ENVIRONMENT'] || "default"
@@ -160,13 +168,16 @@ when "delete"
 when "bootstrap"
   puts "bootstrapping node"
   # Find the instance and create the instance object here
-  Mondupe.new.bootstrap(instance_name, instance_fqdn, instance_ipaddress, chef_environment, chef_identity_file, chef_run_list, ssh_user, knife_exec)
+  Mondupe.new.bootstrap(instance_name, instance_fqdn, instance_host_address, chef_environment, chef_identity_file, chef_run_list, ssh_user, knife_exec)
 when "dumps3"
   puts "getting dump"
-  Mondupe.new.get_db_dump_from_s3(instance_ipaddress, s3_bucket_name, dump_tmp_path, ssh_user, dump_file_name)
+  Mondupe.new.get_db_dump_from_s3(instance_host_address, s3_bucket_name, dump_tmp_path, ssh_user, dump_file_name)
 when "restore"
   puts "Restoring mongo database from dump"
-  Mondupe.new.restore_db(instance_ipaddress, dump_tmp_path, ssh_key, ssh_user, dump_file_name, mongo_db_name, mongo_user, mongo_pass, mongo_auth_db)
+  Mondupe.new.restore_db(instance_host_address, dump_tmp_path, ssh_key, ssh_user, dump_file_name, mongo_db_name, mongo_user, mongo_pass, mongo_auth_db)
+when 'execute'
+  puts "Executing JS against database"
+  Mondupe.new.execute_js(instance_host_address, ssh_key, ssh_user, java_string, mongo_db_name, mongo_user, mongo_pass, mongo_auth_db)
 when "terminate"
   puts "Marking instance for termination"
   Mondupe.new.terminate_instance(instance_id)
