@@ -112,7 +112,7 @@ class Mondupe
     puts "Download URL: #{download_url}"
     puts "#{Time.now.to_s} - Starting download."
     puts "  Please wait..."
-    `ssh -i ~/.ssh/DevOps.pem #{ssh_user}@#{instance_ip} "sudo mkdir -p #{dump_tmp_path} && cd #{dump_tmp_path} && wget '#{download_url}' -O #{File.join(dump_tmp_path, dump_file_name)} 2&>1"`
+    `ssh -i ~/.ssh/DevOps.pem #{ssh_user}@#{instance_ip} "sudo mkdir -p #{dump_tmp_path} && sudo chown #{ssh_user}:#{ssh_user} #{dump_tmp_path} && cd #{dump_tmp_path} && wget '#{download_url}' -O #{File.join(dump_tmp_path, dump_file_name)} 2&>1"`
     puts "#{Time.now.to_s} - Download completed"
   end
 
@@ -138,10 +138,10 @@ class Mondupe
       retry if tries > 0
     end
     puts "#{Time.now.to_s} - Dropping existing database"
-    `#{ssh_command} "echo 'db.dropDatabase()' | #{db_connect_string}"`
+    `#{ssh_command} "#{db_connect_string} --eval 'db.dropDatabase()'"`
     if $?.success? then puts "#{Time.now.to_s} - Database drop complete" else abort("Error dropping database") end
     puts "Extracting database dump archive file..."
-    `#{ssh_command} cd #{dump_tmp_path}; tar xf #{dump_file_name}"`
+    `#{ssh_command} "cd #{dump_tmp_path}; tar xf #{dump_file_name}"`
     if $?.success? then puts "#{Time.now.to_s} - Extraction complete!" else abort("Error extracting archive") end
     puts "Restoring Mongo Database from extracted dump: #{File.join(dump_tmp_path, "#{mongo_db_name}")}"
     `#{ssh_command} "time mongorestore #{File.join(dump_tmp_path, "#{mongo_db_name}")}"`
