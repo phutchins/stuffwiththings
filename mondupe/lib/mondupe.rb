@@ -162,7 +162,7 @@ class Mondupe
     #puts "Connect String: #{db_connect_string}"
     puts "#{Time.now.to_s} - Running command on #{instance_dns} against #{mongo_db_name}"
     puts "JS Query: #{java_command}"
-    db_output = `ssh -i #{ssh_key} #{ssh_user}@#{instance_dns} "#{db_connect_string} --eval \'#{java_command}\'"`
+    db_output = `ssh -i #{ssh_key} #{ssh_user}@#{instance_dns} "#{db_connect_string} --eval '#{java_command}'"`
     puts db_output
     if $?.success? then puts "#{Time.now.to_s} - Command execution complete" else abort("Error executing command") end
   end
