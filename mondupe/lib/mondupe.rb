@@ -74,33 +74,37 @@ class Mondupe
     zone = route53.hosted_zones.select { |z| z.name == route53_domain }.first
 
     rrsets = AWS::Route53::HostedZone.new(zone.id).rrsets
-    rrset = rrsets.create(instance_fqdn, 'A', :ttl => 300, :resource_records => [{:value => instance.ip_address }])
+    rrset = rrsets.create(instance_fqdn, 'CNAME', :ttl => 300, :resource_records => [{:value => instance.ip_address }])
     if rrset.exists?
-      # Create new record if does not exist
+      # Update if record exists
       rrset.update
     else
-      # Update if record exists
-      rrset = zone.rrsets[instance_fqdn, 'A']
+      # Create new record if does not exist
+      rrset = zone.rrsets[instance_fqdn, 'CNAME']
       rrset.resource_records = [ { :value => instance.ip_address } ]
       rrset.update
     end
   end
 
+  def try_command(tries, command)
+    begin
+      `#{command}` or raise "Failure"
+    rescue
+      tries -= 1
+      if tries > 0
+        puts "Trying again. #{tries} left."
+        retry
+      end
+      puts "Failed after #{tries} retries..."
+    end
+  end
 
   def bootstrap(instance_name, instance_fqdn, instance_ipaddress, chef_environment, chef_identity_file, chef_run_list, ssh_user, knife_exec)
     # Bootstrap the new instance with chef
     puts "Bootstraping node with Chef..."
     puts "Running..."
     #puts "#{knife_exec} bootstrap #{instance_ipaddress} -N #{instance_fqdn[0...-1]} -E #{chef_environment} -i #{chef_identity_file} -r #{chef_run_list} -x #{ssh_user} --sudo"
-    tries = 20
-    begin
-      sleep 30
-      system("#{knife_exec} bootstrap #{instance_ipaddress} -N #{instance_fqdn[0...-1]} -E #{chef_environment} -i #{chef_identity_file} -r #{chef_run_list} -x #{ssh_user} --sudo") or raise "Knife bootstrap failed"
-    rescue
-      tries -= 1
-      puts "Cannot connect to node, trying again... #{tries} left."
-      retry if tries > 0
-    end
+    try_command(20, "#{knife_exec} bootstrap #{instance_ipaddress} -N #{instance_fqdn[0...-1]} -E #{chef_environment} -i #{chef_identity_file} -r #{chef_run_list} -x #{ssh_user} --sudo") or abort "Knife bootstrap failed"
   end
 
   def get_db_dump_from_s3(instance_ip, s3_bucket_name, dump_tmp_path, ssh_user, dump_file_name)
@@ -128,15 +132,7 @@ class Mondupe
     db_connect_string = "mongo #{mongo_db_name}"
     db_connect_string << " -u \"#{mongo_user}\" -p \"#{mongo_pass}\"" if !mongo_user.nil? && !mongo_pass.nil?
     db_connect_string << " --authenticationDatabase \"#{mongo_auth_db}\"" if !mongo_auth_db.nil?
-    tries = 20
-    begin
-      `#{ssh_command} "echo 'db.serverStatus()' | #{db_connect_string}"` or raise "Connection failed..."
-      sleep 20
-    rescue
-      tries -= 1
-      puts "Could not connect to DB. Trying again... #{tries} left."
-      retry if tries > 0
-    end
+    try_command(20, "#{ssh_command} \"echo 'db.serverStatus()' | #{db_connect_string}\"") or abort "Failed to connect"
     puts "#{Time.now.to_s} - Dropping existing database"
     `#{ssh_command} "#{db_connect_string} --eval 'db.dropDatabase()'"`
     if $?.success? then puts "#{Time.now.to_s} - Database drop complete" else abort("Error dropping database") end
@@ -162,7 +158,7 @@ class Mondupe
     #puts "Connect String: #{db_connect_string}"
     puts "#{Time.now.to_s} - Running command on #{instance_dns} against #{mongo_db_name}"
     puts "JS Query: #{java_command}"
-    db_output = `ssh -i #{ssh_key} #{ssh_user}@#{instance_dns} "#{db_connect_string} --eval '#{java_command}'"`
+    db_output = try_command(20, "ssh -i #{ssh_key} #{ssh_user}@#{instance_dns} \"#{db_connect_string} --eval '#{java_command}'\"") or abort "Failed to run command"
     puts db_output
     if $?.success? then puts "#{Time.now.to_s} - Command execution complete" else abort("Error executing command") end
   end
