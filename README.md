@@ -10,6 +10,6 @@ The intention of this collection of tools is to build a modular sweet of tools t
 
 ### License
 
-exosphere is released under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
+stuffwiththings is released under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
 
 Specific components of fleet use code derivative from software distributed under other licenses; in those cases the appropriate licenses are stipulated alongside the code.
